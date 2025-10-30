@@ -184,37 +184,40 @@ function App() {
             <div className="response-section">
               <h3>Classification</h3>
               <div className="response-content">
-                <p><strong>Task:</strong> {response.classification?.task_id || 'N/A'}</p>
+                <p><strong>Task:</strong> {response.classification?.taskId || 'N/A'}</p>
                 <p><strong>Confidence:</strong> {response.classification?.confidence?.toFixed(2) || 'N/A'}</p>
                 <p><strong>Service:</strong> {response.classification?.service || 'N/A'}</p>
               </div>
             </div>
 
-            {response.extracted_entities && Object.keys(response.extracted_entities).length > 0 && (
+            {response.extractedEntities && Object.keys(response.extractedEntities).length > 0 && (
               <div className="response-section">
                 <h3>Extracted Entities</h3>
                 <div className="response-content">
-                  {Object.entries(response.extracted_entities).map(([key, value]) => (
+                  {Object.entries(response.extractedEntities).map(([key, value]) => (
                     value && <p key={key}><strong>{key}:</strong> {value}</p>
                   ))}
                 </div>
               </div>
             )}
 
-            {response.next_steps && (
+            {response.nextSteps && (
               <div className="response-section">
                 <h3>Next Steps</h3>
                 <div className="response-content">
-                  <p>{response.next_steps.description}</p>
-                  {response.next_steps.typical_steps && (
+                  <p>{response.nextSteps.description}</p>
+                  {response.nextSteps.typicalSteps && (
                     <ul>
-                      {response.next_steps.typical_steps.map((step, idx) => (
+                      {response.nextSteps.typicalSteps.map((step, idx) => (
                         <li key={idx}>{step}</li>
                       ))}
                     </ul>
                   )}
-                  {response.next_steps.runbook && (
-                    <p className="runbook-link">Runbook: {response.next_steps.runbook}</p>
+                  {response.nextSteps.runbook && (
+                    <p className="runbook-link">Runbook: {response.nextSteps.runbook}</p>
+                  )}
+                  {response.nextSteps.apiSpec && (
+                    <p className="runbook-link">API Spec: {response.nextSteps.apiSpec}</p>
                   )}
                 </div>
               </div>

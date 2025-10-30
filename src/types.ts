@@ -1,31 +1,32 @@
 export interface ClassificationResponse {
-  request_id: string
+  requestId: string
   status: string
   timestamp: string
   input: {
     query: string
     environment: string
-    user_id: string
+    userId: string
   }
   classification: {
-    use_case: string
-    task_id: string | null
+    useCase: string
+    taskId: string
     confidence: number
     service: string
     environment: string
   }
-  extracted_entities: {
+  extractedEntities: {
     [key: string]: string | null
+    entity_type?: string
     case_id?: string
     order_id?: string
     service?: string
     target_status?: string
   }
-  next_steps?: {
+  nextSteps?: {
     description: string
     runbook: string
-    api_spec: string
-    typical_steps: string[]
+    apiSpec: string
+    typicalSteps: string[]
   }
 }
 

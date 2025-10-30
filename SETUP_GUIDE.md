@@ -1,5 +1,7 @@
 # OpsGuide UI - Quick Start for Demo
 
+> **Windows users**: See [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) for Windows-specific instructions
+
 ## Prerequisites
 - Node.js 18+ installed (`node --version`)
 - npm installed (comes with Node.js)
