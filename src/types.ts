@@ -1,19 +1,17 @@
+export interface Step {
+  stepNumber: number
+  description: string
+  method: string
+  path: string
+  requestBody: string
+  expectedResponse: unknown | null
+  autoExecutable: boolean
+  stepType: string
+}
+
 export interface ClassificationResponse {
-  requestId: string
-  status: string
-  timestamp: string
-  input: {
-    query: string
-    environment: string
-    userId: string
-  }
-  classification: {
-    useCase: string
-    taskId: string
-    confidence: number
-    service: string
-    environment: string
-  }
+  taskId: string
+  taskName: string
   extractedEntities: {
     [key: string]: string | null
     entity_type?: string
@@ -22,21 +20,8 @@ export interface ClassificationResponse {
     service?: string
     target_status?: string
   }
-  nextSteps?: {
-    description: string
-    runbook: string
-    apiSpec: string
-    typicalSteps: string[]
-    stepMetadata?: Array<{
-      stepName: string
-      autoExecutable: boolean
-      requiresApproval: boolean
-      stepType: string
-      apiEndpoint?: string | null
-      httpMethod?: string | null
-      apiParameters?: Record<string, unknown> | null
-    }>
-  }
+  steps: Step[]
+  warnings?: string[]
 }
 
 export interface ApiRequest {
