@@ -2,6 +2,12 @@ import { useState, useRef, useEffect, FormEvent } from 'react'
 import './App.css'
 import { ClassificationResponse, ApiRequest, StepExecution, StepExecutionRequest, Step } from './types'
 
+interface AvailableTask {
+  taskId: string
+  taskName: string
+  description: string
+}
+
 function App() {
   const [query, setQuery] = useState<string>('')
   const [response, setResponse] = useState<ClassificationResponse | null>(null)
@@ -9,7 +15,31 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [steps, setSteps] = useState<Map<string, StepExecution>>(new Map())
   const [executingSteps, setExecutingSteps] = useState<Set<string>>(new Set())
+  const [availableTasks, setAvailableTasks] = useState<AvailableTask[]>([])
+  const [showTaskSelector, setShowTaskSelector] = useState<boolean>(false)
+  const [originalQuery, setOriginalQuery] = useState<string>('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Fetch available tasks on mount
+  useEffect(() => {
+    fetchAvailableTasks()
+  }, [])
+
+  const fetchAvailableTasks = async () => {
+    try {
+      const response = await fetch('http://localhost:8093/api/v1/tasks', {
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
+        }
+      })
+      if (response.ok) {
+        const tasks = await response.json()
+        setAvailableTasks(tasks)
+      }
+    } catch (err) {
+      console.error('Failed to fetch available tasks:', err)
+    }
+  }
 
   // Get greeting based on time
   const getGreeting = (): string => {
@@ -80,8 +110,19 @@ function App() {
       }
 
       const data: ClassificationResponse = await apiResponse.json()
+      
+      // Check if classification failed
+      if (!data.taskId || data.taskId === 'UNKNOWN') {
+        setOriginalQuery(query)
+        setShowTaskSelector(true)
+        setResponse(null)
+        setQuery('')
+        return
+      }
+      
       setResponse(data)
       setQuery('')
+      setShowTaskSelector(false)
       
       // Auto-execute only the first auto-executable step
       // Do NOT auto-execute steps that come after non-auto-executable steps
@@ -121,6 +162,60 @@ function App() {
       if (form) {
         form.requestSubmit()
       }
+    }
+  }
+
+  const handleTaskSelection = async (taskId: string) => {
+    setLoading(true)
+    setError(null)
+    setShowTaskSelector(false)
+
+    try {
+      const requestBody = {
+        query: originalQuery,
+        userId: 'ops-engineer-test',
+        taskId: taskId
+      }
+
+      const apiResponse = await fetch('http://localhost:8093/api/v1/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (!apiResponse.ok) {
+        throw new Error(`API error: ${apiResponse.status} ${apiResponse.statusText}`)
+      }
+
+      const data: ClassificationResponse = await apiResponse.json()
+      setResponse(data)
+      
+      // Auto-execute first auto-executable step
+      if (data.steps && data.steps.length > 0) {
+        const firstAutoStep = data.steps.find((step, idx) => {
+          if (step.autoExecutable) {
+            const hasNonAutoBefore = data.steps.slice(0, idx).some(s => !s.autoExecutable)
+            return !hasNonAutoBefore
+          }
+          return false
+        })
+        
+        if (firstAutoStep) {
+          const stepIndex = data.steps.indexOf(firstAutoStep)
+          setTimeout(() => {
+            executeStep(stepIndex, firstAutoStep, data)
+          }, 500)
+        }
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
+      setError(errorMessage)
+      console.error('Error:', err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -284,6 +379,37 @@ function App() {
         {error && (
           <div className="status-message error">
             <span>⚠️ {error}</span>
+          </div>
+        )}
+
+        {/* Task Selector (when classification is UNKNOWN) */}
+        {showTaskSelector && availableTasks.length > 0 && (
+          <div className="task-selector-container">
+            <div className="task-selector">
+              <h3>⚠️ I couldn't understand that. What would you like to do?</h3>
+              <p className="original-query">Query: "{originalQuery}"</p>
+              <div className="task-options">
+                {availableTasks.map((task) => (
+                  <div 
+                    key={task.taskId} 
+                    className="task-option"
+                    onClick={() => handleTaskSelection(task.taskId)}
+                  >
+                    <div className="task-option-header">
+                      <span className="task-option-icon">○</span>
+                      <span className="task-option-name">{task.taskName}</span>
+                    </div>
+                    <div className="task-option-description">{task.description}</div>
+                  </div>
+                ))}
+              </div>
+              <button 
+                className="task-selector-dismiss"
+                onClick={() => setShowTaskSelector(false)}
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 

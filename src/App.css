@@ -873,3 +873,99 @@
   font-size: 0.9rem;
   margin: 0.5rem 0 !important;
 }
+
+/* Task Selector Styles */
+.task-selector-container {
+  margin-top: 2rem;
+}
+
+.task-selector {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.task-selector h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #ff9800;
+}
+
+.original-query {
+  margin: 0 0 1.5rem 0;
+  padding: 0.75rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
+.task-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.task-option {
+  padding: 1.25rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.task-option:hover {
+  border-color: #2196f3;
+  background: #f8fbff;
+  transform: translateX(4px);
+}
+
+.task-option-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.task-option-icon {
+  font-size: 1.5rem;
+  color: #2196f3;
+}
+
+.task-option-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #333;
+}
+
+.task-option-description {
+  font-size: 0.9rem;
+  color: #666;
+  margin-left: 2.25rem;
+  line-height: 1.5;
+  font-family: 'Courier New', monospace;
+  background: #f9f9f9;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+.task-selector-dismiss {
+  width: 100%;
+  padding: 0.75rem;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.task-selector-dismiss:hover {
+  background: #e0e0e0;
+}
