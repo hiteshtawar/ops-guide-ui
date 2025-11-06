@@ -61,25 +61,16 @@ function App() {
     setResponse(null)
 
     try {
-      const requestBody: ApiRequest = {
-        user_id: 'ops-engineer-test',
+      const requestBody = {
         query: query.trim(),
-        context: {
-          reason: 'UI request',
-          priority: 'normal',
-          requested_by: 'ops-engineer-test',
-          timestamp: new Date().toISOString()
-        },
-        environment: 'prod'
+        userId: 'ops-engineer-test'
       }
 
       const apiResponse = await fetch('http://localhost:8093/api/v1/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-ID': 'ops-engineer-test',
-          'X-Idempotency-Key': crypto.randomUUID(),
-          'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJvcHMtZW5naW5lZXItdGVzdCIsIm5hbWUiOiJUZXN0IE9wZXJhdG9yIiwiaWF0IjoxNjk5OTk5OTk5LCJleHAiOjE3MDA5OTk5OTksInJvbGVzIjpbIm9wc19lbmdpbmVlciJdfQ.SAMPLE_JWT_TOKEN'
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
         },
         body: JSON.stringify(requestBody)
       })
@@ -137,25 +128,20 @@ function App() {
     const stepId = `${response.taskId}-step-${stepIndex}`
     setExecutingSteps(prev => new Set(prev).add(stepId))
     
-    const stepRequest: StepExecutionRequest = {
-      requestId: response.taskId,
-      stepIndex: String(stepIndex),
-      stepName: step.description,
+    const stepRequest = {
       taskId: response.taskId,
-      extractedEntities: response.extractedEntities,
-      skipApproval: skipApproval,
-      apiEndpoint: step.path || undefined,
-      httpMethod: step.method || undefined,
-      apiParameters: undefined
+      stepNumber: step.stepNumber,
+      entities: response.extractedEntities,
+      userId: 'ops-engineer-test',
+      authToken: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
     }
 
     try {
-      const apiResponse = await fetch('http://localhost:8093/v1/steps/execute', {
+      const apiResponse = await fetch('http://localhost:8093/api/v1/execute-step', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-ID': 'ops-engineer-test',
-          'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJvcHMtZW5naW5lZXItdGVzdCIsIm5hbWUiOiJUZXN0IE9wZXJhdG9yIiwiaWF0IjoxNjk5OTk5OTk5LCJleHAiOjE3MDA5OTk5OTksInJvbGVzIjpbIm9wc19lbmdpbmVlciJdfQ.SAMPLE_JWT_TOKEN'
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
         },
         body: JSON.stringify(stepRequest)
       })
@@ -164,9 +150,25 @@ function App() {
         throw new Error(`Step execution failed: ${apiResponse.status}`)
       }
 
-      const stepExecution: StepExecution = await apiResponse.json()
+      const stepResponse = await apiResponse.json()
       
-      // Update step status
+      // Update step status - map backend response to UI format
+      const stepExecution: StepExecution = {
+        stepId: stepId,
+        requestId: response.taskId,
+        stepName: step.description,
+        status: stepResponse.success ? 'COMPLETED' : 'FAILED',
+        type: 'API_EXECUTION',
+        requiresApproval: false,
+        result: stepResponse.success ? {
+          success: true,
+          message: stepResponse.responseBody || 'Step completed',
+          data: { statusCode: stepResponse.statusCode },
+          statusCode: stepResponse.statusCode
+        } : undefined,
+        errorMessage: stepResponse.errorMessage
+      }
+      
       setSteps(prev => {
         const newMap = new Map(prev)
         newMap.set(stepId, stepExecution)
@@ -174,7 +176,7 @@ function App() {
       })
       
       // If this step completed successfully, check if we should auto-execute the next step
-      if (stepExecution.status === 'COMPLETED' && stepExecution.result?.success) {
+      if (stepResponse.success) {
         const nextStepIndex = stepIndex + 1
         const nextStep = response.steps?.[nextStepIndex]
         

@@ -24,17 +24,11 @@ export interface ClassificationResponse {
   warnings?: string[]
 }
 
+// Backend API request format
 export interface ApiRequest {
-  user_id: string
   query: string
-  context: {
-    reason: string
-    priority: string
-    requested_by: string
-    timestamp: string
-    [key: string]: unknown
-  }
-  environment: string
+  userId: string
+  taskId?: string  // Optional: override classification
 }
 
 export interface StepExecution {
@@ -55,15 +49,12 @@ export interface StepExecution {
   errorMessage?: string
 }
 
+// Backend step execution request format
 export interface StepExecutionRequest {
-  requestId: string
-  stepIndex: string
-  stepName: string
   taskId: string
-  extractedEntities?: Record<string, string | null>
-  skipApproval?: boolean
-  apiEndpoint?: string | null
-  httpMethod?: string | null
-  apiParameters?: Record<string, unknown> | null
+  stepNumber: number
+  entities: Record<string, string>
+  userId: string
+  authToken: string
 }
 
