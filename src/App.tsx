@@ -193,12 +193,13 @@ function App() {
       const data: ClassificationResponse = await apiResponse.json()
       setResponse(data)
       
-      // Auto-execute first auto-executable precheck
+      // Auto-execute first auto-executable step in prechecks
       if (data.steps?.prechecks && data.steps.prechecks.length > 0) {
-        const firstAutoStep = data.steps.prechecks[0]
-        if (firstAutoStep.autoExecutable) {
+        const firstAutoStep = data.steps.prechecks.find(step => step.autoExecutable)
+        if (firstAutoStep) {
+          const stepIndex = data.steps.prechecks.indexOf(firstAutoStep)
           setTimeout(() => {
-            executeStep(0, firstAutoStep, data, 'prechecks')
+            executeStep(stepIndex, firstAutoStep, data, 'prechecks')
           }, 500)
         }
       }
