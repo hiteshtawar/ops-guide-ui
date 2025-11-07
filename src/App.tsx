@@ -124,25 +124,13 @@ function App() {
       setQuery('')
       setShowTaskSelector(false)
       
-      // Auto-execute only the first auto-executable step
-      // Do NOT auto-execute steps that come after non-auto-executable steps
-      if (data.steps && data.steps.length > 0) {
-        const firstAutoStep = data.steps.find((step, idx) => {
-          // Find first auto-executable step
-          // BUT only execute if no non-auto-executable step comes before it
-          if (step.autoExecutable) {
-            // Check if there's a non-auto-executable step before this one
-            const hasNonAutoBefore = data.steps.slice(0, idx).some(s => !s.autoExecutable)
-            return !hasNonAutoBefore
-          }
-          return false
-        })
-        
-        // Only execute the first auto step if found
+      // Auto-execute the first auto-executable step from prechecks
+      if (data.steps && data.steps.prechecks && data.steps.prechecks.length > 0) {
+        const firstAutoStep = data.steps.prechecks.find(step => step.autoExecutable)
         if (firstAutoStep) {
-          const stepIndex = data.steps.indexOf(firstAutoStep)
+          const stepIndex = data.steps.prechecks.indexOf(firstAutoStep)
           setTimeout(() => {
-            executeStep(stepIndex, firstAutoStep, data)
+            executeStep(stepIndex, firstAutoStep, data, 'prechecks')
           }, 500)
         }
       }
@@ -226,12 +214,9 @@ function App() {
                 <div className="step-header">
                   <span className="step-number">{step.stepNumber}</span>
                   <div className="step-info">
-                    <div className="step-title-row">
-                      <span className="step-name">{step.description}</span>
-                      <span className="step-api-badge" title={`${step.method} ${step.path}`}>
-                        <span className="step-method-badge">{step.method}</span> {step.path}
-                      </span>
-                    </div>
+                    <span className="step-name-with-api" title={`${step.description} ${step.method} ${step.path}`}>
+                      {step.description} <span className="step-method">{step.method}</span> <span className="step-path">{step.path}</span>
+                    </span>
                   </div>
                   <span className={`step-status ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
                     {stepExecution?.status === 'COMPLETED' && '✓'}

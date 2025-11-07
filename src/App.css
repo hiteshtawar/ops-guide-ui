@@ -545,6 +545,7 @@
   gap: 1rem;
   width: 100%;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .step-card:hover {
@@ -577,13 +578,16 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .step-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .step-number {
@@ -641,6 +645,20 @@
   letter-spacing: 0.05em;
 }
 
+/* Override badge styling when inside step-name-with-api */
+.step-name-with-api .step-method {
+  display: inline;
+  padding: 0;
+  margin: 0 0.25rem;
+  background: none;
+  color: #757575;
+  border-radius: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: normal;
+}
+
 .step-path {
   font-size: 0.8rem;
   color: #757575;
@@ -655,6 +673,27 @@
   font-size: 0.9rem;
   min-width: 0;
   word-wrap: break-word;
+}
+
+.step-name-with-api {
+  flex: 1;
+  font-weight: 500;
+  color: #424242;
+  font-size: 0.9rem;
+  min-width: 0;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+
+.step-name-with-api .step-path {
+  font-size: 0.7rem;
+  color: #757575;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-weight: 400;
 }
 
 .step-status {
@@ -713,8 +752,9 @@
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  min-width: fit-content;
 }
 
 .step-button {
