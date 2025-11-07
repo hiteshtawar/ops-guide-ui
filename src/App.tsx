@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, FormEvent } from 'react'
 import './App.css'
-import { ClassificationResponse, ApiRequest, StepExecution, StepExecutionRequest, Step } from './types'
+import { ClassificationResponse, ApiRequest, StepExecution, StepExecutionRequest, Step, StepGroups } from './types'
 
 interface AvailableTask {
   taskId: string
@@ -193,20 +193,12 @@ function App() {
       const data: ClassificationResponse = await apiResponse.json()
       setResponse(data)
       
-      // Auto-execute first auto-executable step
-      if (data.steps && data.steps.length > 0) {
-        const firstAutoStep = data.steps.find((step, idx) => {
-          if (step.autoExecutable) {
-            const hasNonAutoBefore = data.steps.slice(0, idx).some(s => !s.autoExecutable)
-            return !hasNonAutoBefore
-          }
-          return false
-        })
-        
-        if (firstAutoStep) {
-          const stepIndex = data.steps.indexOf(firstAutoStep)
+      // Auto-execute first auto-executable precheck
+      if (data.steps?.prechecks && data.steps.prechecks.length > 0) {
+        const firstAutoStep = data.steps.prechecks[0]
+        if (firstAutoStep.autoExecutable) {
           setTimeout(() => {
-            executeStep(stepIndex, firstAutoStep, data)
+            executeStep(0, firstAutoStep, data, 'prechecks')
           }, 500)
         }
       }
@@ -219,8 +211,83 @@ function App() {
     }
   }
 
-  const executeStep = async (stepIndex: number, step: Step, response: ClassificationResponse, skipApproval = false) => {
-    const stepId = `${response.taskId}-step-${stepIndex}`
+  const renderStepGroup = (stepList: Step[], response: ClassificationResponse, stepGroup: string) => {
+    return stepList.map((step, idx) => {
+      const stepId = `${response.taskId}-${stepGroup}-${idx}`
+      const stepExecution = steps.get(stepId)
+      const isExecuting = executingSteps.has(stepId)
+      
+      return (
+        <div key={idx} className="step-wrapper">
+          <div className="step-row">
+            <div className={`step-card ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
+              <div className="step-content">
+                <div className="step-header">
+                  <span className="step-number">{step.stepNumber}</span>
+                  <div className="step-info">
+                    <span className="step-name">{step.description}</span>
+                  </div>
+                  <span className={`step-status ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
+                    {stepExecution?.status === 'COMPLETED' && '✓'}
+                    {stepExecution?.status === 'FAILED' && '✗'}
+                    {stepExecution?.status === 'RUNNING' && '⟳'}
+                    {stepExecution?.status === 'APPROVAL_REQUIRED' && '⏸'}
+                    {!stepExecution && !isExecuting && '○'}
+                  </span>
+                </div>
+                <div className="step-details-inline">
+                  <span className="step-method">{step.method}</span>
+                  <span className="step-path">{step.path}</span>
+                </div>
+              </div>
+              <div className="step-actions">
+                {!stepExecution && !isExecuting && step.autoExecutable && (
+                  <button
+                    className="step-button auto-execute"
+                    onClick={() => executeStep(idx, step, response, stepGroup)}
+                  >
+                    Run
+                  </button>
+                )}
+                {!stepExecution && !isExecuting && !step.autoExecutable && (
+                  <button
+                    className="step-button approve"
+                    onClick={() => executeStep(idx, step, response, stepGroup, true)}
+                  >
+                    Approve & Run
+                  </button>
+                )}
+                {isExecuting && (
+                  <span className="executing" style={{ fontSize: '0.85rem' }}>⟳ Running...</span>
+                )}
+                {(stepExecution?.status === 'CANCELLED') && (
+                  <span style={{ fontSize: '0.85rem', color: '#90a4ae' }}>✗ Cancelled</span>
+                )}
+              </div>
+            </div>
+            {(stepExecution?.result || stepExecution?.errorMessage) && (
+              <div className="step-message-container">
+                {stepExecution?.result && (
+                  <div className={`step-details ${stepExecution.result.success ? 'success' : 'error'}`}>
+                    {stepExecution.result.success ? '✓ ' : '✗ '}
+                    {stepExecution.result.message || stepExecution.result.data?.status || 'Completed'}
+                  </div>
+                )}
+                {stepExecution?.errorMessage && (
+                  <div className="step-details error">
+                    ✗ {stepExecution.errorMessage}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    })
+  }
+
+  const executeStep = async (stepIndex: number, step: Step, response: ClassificationResponse, stepGroup: string, skipApproval = false) => {
+    const stepId = `${response.taskId}-${stepGroup}-${stepIndex}`
     setExecutingSteps(prev => new Set(prev).add(stepId))
     
     const stepRequest = {
@@ -270,17 +337,19 @@ function App() {
         return newMap
       })
       
-      // If this step completed successfully, check if we should auto-execute the next step
+      // If this step completed successfully, check if we should auto-execute the next step in same group
       if (stepResponse.success) {
-        const nextStepIndex = stepIndex + 1
-        const nextStep = response.steps?.[nextStepIndex]
-        
-        // Only auto-execute next step if it's auto-executable
-        if (nextStep && nextStep.autoExecutable) {
-          // Wait a bit before executing next step
-          setTimeout(() => {
-            executeStep(nextStepIndex, nextStep, response)
-          }, 500)
+        const currentGroup = response.steps?.[stepGroup as keyof StepGroups]
+        if (currentGroup) {
+          const nextStepIndex = stepIndex + 1
+          const nextStep = currentGroup[nextStepIndex]
+          
+          // Only auto-execute next step if it exists and is auto-executable
+          if (nextStep && nextStep.autoExecutable) {
+            setTimeout(() => {
+              executeStep(nextStepIndex, nextStep, response, stepGroup)
+            }, 500)
+          }
         }
       }
     } catch (err) {
@@ -448,86 +517,45 @@ function App() {
               </div>
             )}
 
-            {response.steps && response.steps.length > 0 && (
+            {response.steps && (
               <div className="response-section">
-                <h3>Steps</h3>
+                <h3>Runbook Steps</h3>
                 <div className="response-content">
-                  <div className="steps-container">
-                    {response.steps.map((step, idx) => {
-                      const stepId = `${response.taskId}-step-${idx}`
-                      const stepExecution = steps.get(stepId)
-                      const isExecuting = executingSteps.has(stepId)
-                      const stepTypeLabel = step.stepType.charAt(0).toUpperCase() + step.stepType.slice(1)
-                      
-                      return (
-                        <div key={idx} className="step-wrapper">
-                          <div className="step-row">
-                            <div className={`step-card ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
-                              <div className="step-content">
-                                <div className="step-header">
-                                  <span className="step-number">{step.stepNumber}</span>
-                                  <div className="step-info">
-                                    <span className="step-name">{step.description}</span>
-                                    <span className="step-type-badge">{stepTypeLabel}</span>
-                                  </div>
-                                  <span className={`step-status ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
-                                    {stepExecution?.status === 'COMPLETED' && '✓'}
-                                    {stepExecution?.status === 'FAILED' && '✗'}
-                                    {stepExecution?.status === 'RUNNING' && '⟳'}
-                                    {stepExecution?.status === 'APPROVAL_REQUIRED' && '⏸'}
-                                    {!stepExecution && !isExecuting && '○'}
-                                  </span>
-                                </div>
-                                <div className="step-details-inline">
-                                  <span className="step-method">{step.method}</span>
-                                  <span className="step-path">{step.path}</span>
-                                </div>
-                              </div>
-                              <div className="step-actions">
-                                {!stepExecution && !isExecuting && step.autoExecutable && (
-                                  <button
-                                    className="step-button auto-execute"
-                                    onClick={() => executeStep(idx, step, response)}
-                                  >
-                                    Run
-                                  </button>
-                                )}
-                                {!stepExecution && !isExecuting && !step.autoExecutable && (
-                                  <button
-                                    className="step-button approve"
-                                    onClick={() => executeStep(idx, step, response, true)}
-                                  >
-                                    Approve & Run
-                                  </button>
-                                )}
-                                {isExecuting && (
-                                  <span className="executing" style={{ fontSize: '0.85rem' }}>⟳ Running...</span>
-                                )}
-                                {(stepExecution?.status === 'CANCELLED') && (
-                                  <span style={{ fontSize: '0.85rem', color: '#90a4ae' }}>✗ Cancelled</span>
-                                )}
-                              </div>
-                            </div>
-                            {(stepExecution?.result || stepExecution?.errorMessage) && (
-                              <div className="step-message-container">
-                                {stepExecution?.result && (
-                                  <div className={`step-details ${stepExecution.result.success ? 'success' : 'error'}`}>
-                                    {stepExecution.result.success ? '✓ ' : '✗ '}
-                                    {stepExecution.result.message || stepExecution.result.data?.status || 'Completed'}
-                                  </div>
-                                )}
-                                {stepExecution?.errorMessage && (
-                                  <div className="step-details error">
-                                    ✗ {stepExecution.errorMessage}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  {response.steps.prechecks && response.steps.prechecks.length > 0 && (
+                    <div className="step-group">
+                      <h4 className="step-group-header">Pre-checks</h4>
+                      <div className="steps-container">
+                        {renderStepGroup(response.steps.prechecks, response, 'prechecks')}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {response.steps.procedure && response.steps.procedure.length > 0 && (
+                    <div className="step-group">
+                      <h4 className="step-group-header">Procedure</h4>
+                      <div className="steps-container">
+                        {renderStepGroup(response.steps.procedure, response, 'procedure')}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {response.steps.postchecks && response.steps.postchecks.length > 0 && (
+                    <div className="step-group">
+                      <h4 className="step-group-header">Post-checks</h4>
+                      <div className="steps-container">
+                        {renderStepGroup(response.steps.postchecks, response, 'postchecks')}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {response.steps.rollback && response.steps.rollback.length > 0 && (
+                    <div className="step-group">
+                      <h4 className="step-group-header">Rollback</h4>
+                      <div className="steps-container">
+                        {renderStepGroup(response.steps.rollback, response, 'rollback')}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

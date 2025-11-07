@@ -9,6 +9,13 @@ export interface Step {
   stepType: string
 }
 
+export interface StepGroups {
+  prechecks?: Step[]
+  procedure?: Step[]
+  postchecks?: Step[]
+  rollback?: Step[]
+}
+
 export interface ClassificationResponse {
   taskId: string
   taskName: string
@@ -20,7 +27,7 @@ export interface ClassificationResponse {
     service?: string
     target_status?: string
   }
-  steps: Step[]
+  steps: StepGroups
   warnings?: string[]
 }
 
