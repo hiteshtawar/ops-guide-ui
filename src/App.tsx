@@ -226,6 +226,7 @@ function App() {
                   <span className="step-number">{step.stepNumber}</span>
                   <div className="step-info">
                     <span className="step-name">{step.description}</span>
+                    <span className="step-path-inline" title={step.path}>{step.path}</span>
                   </div>
                   <span className={`step-status ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
                     {stepExecution?.status === 'COMPLETED' && '✓'}
@@ -234,10 +235,6 @@ function App() {
                     {stepExecution?.status === 'APPROVAL_REQUIRED' && '⏸'}
                     {!stepExecution && !isExecuting && '○'}
                   </span>
-                </div>
-                <div className="step-details-inline">
-                  <span className="step-method">{step.method}</span>
-                  <span className="step-path">{step.path}</span>
                 </div>
               </div>
               <div className="step-actions">
