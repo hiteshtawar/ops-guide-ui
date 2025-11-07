@@ -226,8 +226,12 @@ function App() {
                 <div className="step-header">
                   <span className="step-number">{step.stepNumber}</span>
                   <div className="step-info">
-                    <span className="step-name">{step.description}</span>
-                    <span className="step-path-inline" title={step.path}>{step.path}</span>
+                    <div className="step-title-row">
+                      <span className="step-name">{step.description}</span>
+                      <span className="step-api-badge" title={`${step.method} ${step.path}`}>
+                        <span className="step-method-badge">{step.method}</span> {step.path}
+                      </span>
+                    </div>
                   </div>
                   <span className={`step-status ${stepExecution?.status?.toLowerCase() || 'pending'}`}>
                     {stepExecution?.status === 'COMPLETED' && '✓'}
