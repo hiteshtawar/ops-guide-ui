@@ -200,11 +200,69 @@ function App() {
     }
   }
 
+  // Helper function to check if any previous step has failed
+  const hasPreviousStepFailed = (stepIndex: number, stepGroup: string, response: ClassificationResponse): boolean => {
+    // Check all steps in the same group before this step
+    const currentGroup = response.steps?.[stepGroup as keyof StepGroups]
+    if (currentGroup) {
+      for (let i = 0; i < stepIndex; i++) {
+        const prevStepId = `${response.taskId}-${stepGroup}-${i}`
+        const prevStepExecution = steps.get(prevStepId)
+        if (prevStepExecution?.status === 'FAILED') {
+          return true
+        }
+      }
+    }
+    
+    // Check all steps in previous groups (prechecks -> procedure -> postchecks)
+    const groupOrder = ['prechecks', 'procedure', 'postchecks', 'rollback']
+    const currentGroupIndex = groupOrder.indexOf(stepGroup)
+    
+    if (currentGroupIndex > 0) {
+      // Check all previous groups
+      for (let g = 0; g < currentGroupIndex; g++) {
+        const prevGroup = groupOrder[g]
+        const prevGroupSteps = response.steps?.[prevGroup as keyof StepGroups]
+        if (prevGroupSteps) {
+          for (let i = 0; i < prevGroupSteps.length; i++) {
+            const prevStepId = `${response.taskId}-${prevGroup}-${i}`
+            const prevStepExecution = steps.get(prevStepId)
+            if (prevStepExecution?.status === 'FAILED') {
+              return true
+            }
+          }
+        }
+      }
+    }
+    
+    return false
+  }
+
+  // Helper function to parse JSON message and extract string
+  const parseMessage = (message: string | undefined): string => {
+    if (!message) return 'Completed'
+    
+    try {
+      const parsed = JSON.parse(message)
+      // If it's an object with a message property, return that
+      if (typeof parsed === 'object' && parsed !== null && 'message' in parsed) {
+        return String(parsed.message)
+      }
+      // If it's already a string, return it
+      return String(parsed)
+    } catch {
+      // If it's not JSON, return as is
+      return message
+    }
+  }
+
   const renderStepGroup = (stepList: Step[], response: ClassificationResponse, stepGroup: string) => {
     return stepList.map((step, idx) => {
       const stepId = `${response.taskId}-${stepGroup}-${idx}`
       const stepExecution = steps.get(stepId)
       const isExecuting = executingSteps.has(stepId)
+      const hasPreviousFailed = hasPreviousStepFailed(idx, stepGroup, response)
+      const isDisabled = hasPreviousFailed && !stepExecution
       
       return (
         <div key={idx} className="step-wrapper">
@@ -232,6 +290,8 @@ function App() {
                   <button
                     className="step-button auto-execute"
                     onClick={() => executeStep(idx, step, response, stepGroup)}
+                    disabled={isDisabled}
+                    style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                   >
                     Run
                   </button>
@@ -240,6 +300,8 @@ function App() {
                   <button
                     className="step-button approve"
                     onClick={() => executeStep(idx, step, response, stepGroup, true)}
+                    disabled={isDisabled}
+                    style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                   >
                     Approve & Run
                   </button>
@@ -250,6 +312,9 @@ function App() {
                 {(stepExecution?.status === 'CANCELLED') && (
                   <span style={{ fontSize: '0.85rem', color: '#90a4ae' }}>✗ Cancelled</span>
                 )}
+                {isDisabled && !stepExecution && !isExecuting && (
+                  <span style={{ fontSize: '0.85rem', color: '#90a4ae' }}>⏸ Blocked by previous failure</span>
+                )}
               </div>
             </div>
             {(stepExecution?.result || stepExecution?.errorMessage) && (
@@ -257,7 +322,7 @@ function App() {
                 {stepExecution?.result && (
                   <div className={`step-details ${stepExecution.result.success ? 'success' : 'error'}`}>
                     {stepExecution.result.success ? '✓ ' : '✗ '}
-                    {stepExecution.result.message || stepExecution.result.data?.status || 'Completed'}
+                    {parseMessage(stepExecution.result.message) || stepExecution.result.data?.status || 'Completed'}
                   </div>
                 )}
                 {stepExecution?.errorMessage && (
@@ -277,12 +342,33 @@ function App() {
     const stepId = `${response.taskId}-${stepGroup}-${stepIndex}`
     setExecutingSteps(prev => new Set(prev).add(stepId))
     
+    // Extract role from JWT token (decode the payload)
+    // JWT format: header.payload.signature
+    const jwtToken = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
+    const tokenParts = jwtToken.split(' ')
+    const token = tokenParts.length > 1 ? tokenParts[1] : jwtToken
+    
+    let roleName = 'Production Support' // Default role name
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (payload.roles && Array.isArray(payload.roles) && payload.roles.length > 0) {
+        // Use the first role, converting snake_case to Title Case
+        const role = payload.roles[0]
+        roleName = role.split('_').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ')
+      }
+    } catch (e) {
+      console.warn('Failed to parse JWT token for role extraction', e)
+    }
+    
     const stepRequest = {
       taskId: response.taskId,
       stepNumber: step.stepNumber,
       entities: response.extractedEntities,
       userId: 'ops-engineer-test',
-      authToken: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
+      authToken: jwtToken,
+      roleName: roleName
     }
 
     try {
@@ -301,6 +387,22 @@ function App() {
 
       const stepResponse = await apiResponse.json()
       
+      // Parse response body to extract message if it's JSON
+      let message = stepResponse.responseBody || 'Step completed'
+      if (stepResponse.responseBody) {
+        try {
+          const parsed = JSON.parse(stepResponse.responseBody)
+          if (typeof parsed === 'object' && parsed !== null && 'message' in parsed) {
+            message = String(parsed.message)
+          } else {
+            message = stepResponse.responseBody
+          }
+        } catch {
+          // Not JSON, use as is
+          message = stepResponse.responseBody
+        }
+      }
+      
       // Update step status - map backend response to UI format
       const stepExecution: StepExecution = {
         stepId: stepId,
@@ -311,7 +413,7 @@ function App() {
         requiresApproval: false,
         result: stepResponse.success ? {
           success: true,
-          message: stepResponse.responseBody || 'Step completed',
+          message: message,
           data: { statusCode: stepResponse.statusCode },
           statusCode: stepResponse.statusCode
         } : undefined,
