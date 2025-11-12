@@ -103,23 +103,20 @@ try {
 }
 ```
 
-#### Request Body Update
+#### HTTP Header Update
 
-Add `roleName` to the step execution request:
+Add `Role-Name` header to the execute-step API request:
 
-**Updated Interface:**
+**Request Headers:**
 ```typescript
-interface StepExecutionRequest {
-  taskId: string
-  stepNumber: number
-  entities: Record<string, string>
-  userId: string
-  authToken: string
-  roleName?: string  // NEW FIELD
+const headers = {
+  'Content-Type': 'application/json',
+  'Authorization': jwtToken,
+  'Role-Name': roleName  // NEW HEADER - extracted role name
 }
 ```
 
-**Request Example:**
+**Request Body (unchanged):**
 ```typescript
 const stepRequest = {
   taskId: response.taskId,
@@ -127,8 +124,21 @@ const stepRequest = {
   entities: response.extractedEntities,
   userId: 'ops-engineer-test',
   authToken: jwtToken,
-  roleName: roleName  // Include extracted role name
+  roleName: roleName  // Optional: also include in body if backend needs it
 }
+```
+
+**Complete API Call Example:**
+```typescript
+const apiResponse = await fetch('http://localhost:8093/api/v1/execute-step', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': jwtToken,
+    'Role-Name': roleName  // Pass role as HTTP header
+  },
+  body: JSON.stringify(stepRequest)
+})
 ```
 
 ---
