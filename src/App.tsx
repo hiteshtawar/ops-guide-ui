@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, FormEvent } from 'react'
 import './App.css'
-import { ClassificationResponse, ApiRequest, StepExecution, StepExecutionRequest, Step, StepGroups } from './types'
+import { ClassificationResponse, StepExecution, Step, StepGroups } from './types'
 
 interface AvailableTask {
   taskId: string
@@ -322,7 +322,7 @@ function App() {
                 {stepExecution?.result && (
                   <div className={`step-details ${stepExecution.result.success ? 'success' : 'error'}`}>
                     {stepExecution.result.success ? '✓ ' : '✗ '}
-                    {parseMessage(stepExecution.result.message) || stepExecution.result.data?.status || 'Completed'}
+                    {parseMessage(stepExecution.result.message) ?? stepExecution.result.data?.status ?? 'Completed'}
                   </div>
                 )}
                 {stepExecution?.errorMessage && (
@@ -338,7 +338,7 @@ function App() {
     })
   }
 
-  const executeStep = async (stepIndex: number, step: Step, response: ClassificationResponse, stepGroup: string, skipApproval = false) => {
+  const executeStep = async (stepIndex: number, step: Step, response: ClassificationResponse, stepGroup: string, _skipApproval = false) => {
     const stepId = `${response.taskId}-${stepGroup}-${stepIndex}`
     setExecutingSteps(prev => new Set(prev).add(stepId))
     
@@ -354,7 +354,7 @@ function App() {
       if (payload.roles && Array.isArray(payload.roles) && payload.roles.length > 0) {
         // Use the first role, converting snake_case to Title Case
         const role = payload.roles[0]
-        roleName = role.split('_').map(word => 
+        roleName = role.split('_').map((word: string) => 
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ')
       }
@@ -376,7 +376,8 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q'
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbmdpbmVlckBleGFtcGxlLmNvbSIsIm5hbWUiOiJUZXN0IEVuZ2luZWVyIiwicm9sZXMiOlsicHJvZHVjdGlvbl9zdXBwb3J0Iiwic3VwcG9ydF9hZG1pbiJdLCJpYXQiOjE3NjI0NjYzNTksImV4cCI6MjA3NzgyNjM1OX0.v8amYkiJOS2dT9MQaZJBkdN-8rWrs-rfxqgVCtgTu3Q',
+          'Role-Name': roleName
         },
         body: JSON.stringify(stepRequest)
       })
